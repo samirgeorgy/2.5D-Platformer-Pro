@@ -19,6 +19,11 @@ public class Player : MonoBehaviour
     private UIManager _uiManager;
     [SerializeField]
     private int _lives = 3;
+    bool _canWallJump;
+    private Vector3 _wallSurfaceNormal;
+    private Vector3 _velocity;
+    private Vector3 _direction;
+    private float _pushPower = 2;
 
     // Start is called before the first frame update
     void Start()
@@ -38,11 +43,13 @@ public class Player : MonoBehaviour
     void Update()
     {
         float horizontalInput = Input.GetAxis("Horizontal");
-        Vector3 direction = new Vector3(horizontalInput, 0, 0);
-        Vector3 velocity = direction * _speed;
 
         if (_controller.isGrounded == true)
         {
+            _canWallJump = true;
+            _direction = new Vector3(horizontalInput, 0, 0);
+            _velocity = _direction * _speed;
+
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 _yVelocity = _jumpHeight;
@@ -51,7 +58,7 @@ public class Player : MonoBehaviour
         }
         else
         {
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (Input.GetKeyDown(KeyCode.Space) && _canWallJump == false)
             {
                 if (_canDoubleJump == true)
                 {
@@ -60,12 +67,18 @@ public class Player : MonoBehaviour
                 }
             }
 
+            if (Input.GetKeyDown(KeyCode.Space) && _canWallJump == true)
+            {
+                _yVelocity = _jumpHeight;
+                _velocity = _wallSurfaceNormal * _speed;
+            }
+
             _yVelocity -= _gravity;
         }
 
-        velocity.y = _yVelocity;
+        _velocity.y = _yVelocity;
 
-        _controller.Move(velocity * Time.deltaTime);
+        _controller.Move(_velocity * Time.deltaTime);
     }
 
     public void AddCoins()
@@ -73,6 +86,11 @@ public class Player : MonoBehaviour
         _coins++;
 
         _uiManager.UpdateCoinDisplay(_coins);
+    }
+
+    public int GetCoinCount()
+    {
+        return _coins;
     }
 
     public void Damage()
@@ -84,6 +102,27 @@ public class Player : MonoBehaviour
         if (_lives < 1)
         {
             SceneManager.LoadScene(0);
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit.transform.tag.Equals("MovingBox"))
+        {
+            Rigidbody rb = hit.collider.GetComponent<Rigidbody>();
+
+            if (rb != null)
+            {
+                Vector3 pushDirection = new Vector3(hit.moveDirection.x, 0, 0);
+                rb.velocity = pushDirection * _pushPower;
+            }
+        }
+
+        if (_controller.isGrounded == false && hit.transform.tag.Equals("Wall"))
+        {
+            Debug.DrawRay(hit.point, hit.normal, Color.blue);
+            _wallSurfaceNormal = hit.normal;
+            _canWallJump = true;
         }
     }
 }
